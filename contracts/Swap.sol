@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "hardhat/console.sol";
 import "./CoinStatsBaseV1.sol";
+import "contracts/IntegrationInterface.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "hardhat/console.sol";
 
 interface IWETH {
     function deposit() external payable;
@@ -29,7 +32,7 @@ interface ISavingsContractV2 {
     ) external view returns (uint256 credits);
 }
 
-contract Swap is CoinStatsBaseV1 {
+contract Swap is CoinStatsBaseV1, IntegrationInterface {
     using SafeERC20 for IERC20;
 
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -37,6 +40,9 @@ contract Swap is CoinStatsBaseV1 {
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
     address public constant UNISWAP_V2_FACTORY =
         0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f;
+    address constant usdc = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
+
+    mapping(address => mapping(address => uint256)) public liquidity;
 
     IUniswapV2Router02 public router = IUniswapV2Router02(UNISWAP_V2_ROUTER);
     IUniswapV2Factory public factory = IUniswapV2Factory(UNISWAP_V2_FACTORY);
@@ -51,67 +57,214 @@ contract Swap is CoinStatsBaseV1 {
     }
 
     function getBalance(
-        address savingsContractAddress,
+        address token,
         address account
-    ) public view returns (uint256) {
-        return IERC20(savingsContractAddress).balanceOf(account);
+    ) public view override returns (uint256) {
+        return IERC20(token).balanceOf(account);
     }
 
-    function getTotalSupply(
-        address savingsContractAddress
-    ) public view returns (uint256) {
-        return IERC20(savingsContractAddress).totalSupply();
+    function getTotalSupply(address token) public view returns (uint256) {
+        return IERC20(token).totalSupply();
     }
 
     function deposit(
-        address inputTokenAddress,
-        uint256 inputTokenAmount,
-        address outputTokenAddress,
+        address entryTokenAddress,
+        uint256 entryTokenAmount,
+        address depositTokenAddress2,
+        address depositTokenAddress1,
+        uint256,
+        address,
+        address,
         address swapTarget,
-        bytes memory swapData
-    ) public payable {
-        if (inputTokenAddress != ETH_ADDRESS) {
-            IERC20(inputTokenAddress).transferFrom(
-                msg.sender,
-                address(this),
-                inputTokenAmount
-            );
+        bytes calldata swapData,
+        address
+    ) external payable override {
+        if (entryTokenAddress != ETH_ADDRESS) {
+            _pullTokens(entryTokenAddress, entryTokenAmount);
         }
 
-        uint256 initialOutputTokenBalance = _getBalance(outputTokenAddress);
-        oneInchSwap(
-            inputTokenAddress,
-            inputTokenAmount,
-            outputTokenAddress,
+        uint256 initialOutputTokenBalance;
+        uint256 outputTokensBought;
+
+        initialOutputTokenBalance = _getBalance(depositTokenAddress2);
+
+        fillQuote(
+            entryTokenAddress,
+            entryTokenAmount,
+            depositTokenAddress2,
             swapTarget,
             swapData
         );
-
-        uint256 outputTokensBought = _getBalance(outputTokenAddress) -
+        outputTokensBought =
+            _getBalance(depositTokenAddress2) -
             initialOutputTokenBalance;
-        require(
-            outputTokensBought > 0,
-            "OneInchSwap: Swapped to invalid token."
+
+        _deposit(
+            depositTokenAddress1,
+            depositTokenAddress2,
+            outputTokensBought
         );
+    }
+
+    function _deposit(
+        address depositTokenAddress1,
+        address depositTokenAddress2,
+        uint256 outputTokensBought
+    ) public payable {
+        uint256 token1BalanceBefore = _getBalance(depositTokenAddress1);
+
+        address pair = factory.getPair(
+            depositTokenAddress1,
+            depositTokenAddress2
+        );
+
+        uint256 reserve = IERC20(depositTokenAddress2).balanceOf(pair);
+        uint256 tokenToTokenAmount = tokenToTokenSwapAmount(
+            reserve,
+            outputTokensBought
+        );
+
+        _approveToken(depositTokenAddress1, UNISWAP_V2_ROUTER);
+        _approveToken(depositTokenAddress2, UNISWAP_V2_ROUTER);
+
+        address[] memory path = new address[](2);
+        path[0] = depositTokenAddress2; 
+        path[1] = depositTokenAddress1; 
+
+        router.swapExactTokensForTokens(
+            tokenToTokenAmount,
+            0,
+            path,
+            address(this),
+            block.timestamp
+        );
+
+        uint256 token1BalanceAfter = _getBalance(depositTokenAddress1) -
+            token1BalanceBefore;
+
+        router.addLiquidity(
+            depositTokenAddress2, 
+            depositTokenAddress1, 
+            _getBalance(depositTokenAddress2),
+            token1BalanceAfter,
+            0,
+            0,
+            msg.sender,
+            block.timestamp
+        );
+    }
+
+    function sqrt(uint256 y) private pure returns (uint256 z) {
+        if (y > 3) {
+            z = y;
+            uint256 x = y / 2 + 1;
+            while (x < z) {
+                z = x;
+                x = (y / x + x) / 2;
+            }
+        } else if (y != 0) {
+            z = 1;
+        }
+    }
+
+    function tokenToTokenSwapAmount(
+        uint256 reserve,
+        uint256 amount
+    ) public pure returns (uint256) {
+        return
+            (sqrt(reserve * (reserve * 3988009 + amount * 3988000)) -
+                reserve *
+                1997) / 1994;
     }
 
     function withdraw(
-        address inputTokenAddress,
-        uint256 inputTokenAmount,
-        address outputTokenAddress,
+        address poolAddress,
+        uint256 entryTokenAmount,
+        address exitTokenAddress,
+        uint256,
+        address exitToken1Address,
+        address exitToken2Address,
         address swapTarget,
-        bytes memory swapData
+        bytes calldata swapData,
+        address
+    ) external payable override {
+        exitToken1Address = IUniswapV2Pair(poolAddress).token0();
+        exitToken2Address = IUniswapV2Pair(poolAddress).token1();
+
+        uint256 exitToken1AmountBefore = _getBalance(exitToken1Address);
+        uint256 exitToken2AmountBefore = _getBalance(exitToken2Address);
+
+        _withdraw(
+            exitToken1Address,
+            exitToken2Address,
+            poolAddress,
+            entryTokenAmount
+        );
+
+        uint256 exitToken1Amount = _getBalance(exitToken1Address) -
+            exitToken1AmountBefore;
+        uint256 exitToken2Amount = _getBalance(exitToken2Address) -
+            exitToken2AmountBefore;
+
+        if (exitTokenAddress == exitToken1Address) {
+            IERC20(exitToken1Address).safeTransfer(
+                msg.sender,
+                exitToken2Amount
+            );
+        } else {
+            fillQuote(
+                exitToken1Address,
+                exitToken1Amount,
+                exitTokenAddress,
+                swapTarget,
+                swapData
+            );
+        }
+    }
+
+    function _withdraw(
+        address exitToken1Address,
+        address exitToken2Address,
+        address lpTokenAddress,
+        uint256 entryTokenAmount
     ) public payable {
-        oneInchSwap(
-            inputTokenAddress,
-            inputTokenAmount,
-            outputTokenAddress,
-            swapTarget,
-            swapData
+        uint256 exitToken1AmountBefore = _getBalance(exitToken1Address);
+        uint256 exitToken2AmountBefore = _getBalance(exitToken2Address);
+
+        _approveToken(lpTokenAddress, UNISWAP_V2_ROUTER);
+
+        removeLiquidity(
+            exitToken1Address,
+            exitToken2Address,
+            entryTokenAmount,
+            0,
+            0,
+            address(this),
+            block.timestamp,
+            lpTokenAddress
+        );
+
+        uint256 exitToken1Amount = _getBalance(exitToken1Address) -
+            exitToken1AmountBefore;
+
+        uint256 exitToken2Amount = _getBalance(exitToken2Address) -
+            exitToken2AmountBefore;
+
+        address[] memory path = new address[](2);
+
+        _approveToken(exitToken2Address, UNISWAP_V2_ROUTER);
+        path[0] = exitToken2Address;
+        path[1] = exitToken1Address;
+        router.swapExactTokensForTokens(
+            exitToken2Amount,
+            0,
+            path,
+            address(this),
+            block.timestamp
         );
     }
 
-    function oneInchSwap(
+    function fillQuote(
         address inputTokenAddress,
         uint256 inputTokenAmount,
         address outputTokenAddress,
@@ -120,19 +273,6 @@ contract Swap is CoinStatsBaseV1 {
     ) public payable returns (uint256 outputTokensBought) {
         if (inputTokenAddress == outputTokenAddress) {
             return inputTokenAmount;
-        }
-
-        if (swapTarget == WETH) {
-            if (
-                outputTokenAddress == address(0) ||
-                outputTokenAddress == ETH_ADDRESS
-            ) {
-                IWETH(WETH).withdraw(inputTokenAmount);
-                return inputTokenAmount;
-            } else {
-                IWETH(WETH).deposit{value: inputTokenAmount}();
-                return inputTokenAmount;
-            }
         }
 
         uint256 value;
@@ -206,19 +346,19 @@ contract Swap is CoinStatsBaseV1 {
     function removeLiquidity(
         address tokenA,
         address tokenB,
-        uint liquidity,
+        uint liquidityAB,
         uint amountAMin,
         uint amountBMin,
         address to,
         uint deadline,
         address lpToken
     ) public {
-        IERC20(lpToken).transferFrom(msg.sender, address(this), liquidity);
-        IERC20(lpToken).approve(UNISWAP_V2_ROUTER, liquidity);
+        IERC20(lpToken).transferFrom(msg.sender, address(this), liquidityAB);
+        IERC20(lpToken).approve(UNISWAP_V2_ROUTER, liquidityAB);
         if (tokenA == ETH_ADDRESS) {
             router.removeLiquidityETH(
                 tokenB,
-                liquidity,
+                liquidityAB,
                 amountBMin,
                 amountAMin,
                 to,
@@ -227,7 +367,7 @@ contract Swap is CoinStatsBaseV1 {
         } else if (tokenB == ETH_ADDRESS) {
             router.removeLiquidityETH(
                 tokenA,
-                liquidity,
+                liquidityAB,
                 amountAMin,
                 amountBMin,
                 to,
@@ -237,12 +377,45 @@ contract Swap is CoinStatsBaseV1 {
             router.removeLiquidity(
                 tokenA,
                 tokenB,
-                liquidity,
+                liquidityAB,
                 amountAMin,
                 amountBMin,
                 to,
                 deadline
             );
+        }
+    }
+
+    function removeAssetReturn(
+        address poolAddress,
+        address exitToken,
+        uint256 liquidityAmount
+    ) external view override returns (uint256) {
+        IUniswapV2Pair pair = IUniswapV2Pair(poolAddress);
+        address token0 = pair.token0();
+        address token1 = pair.token1();
+
+        uint256 totalPairLiquidity = pair.totalSupply();
+
+        (uint256 reserve0, uint256 reserve1, ) = pair.getReserves();
+
+        uint256 amount0 = (reserve0 * liquidityAmount) / totalPairLiquidity;
+        uint256 amount1 = (reserve1 * liquidityAmount) / totalPairLiquidity;
+
+        if (exitToken == token1) {
+            amount1 += UniswapV2Library.getAmountOut(
+                amount0,
+                reserve0 - amount0,
+                reserve1 - amount1
+            );
+            return amount1;
+        } else {
+            amount0 += UniswapV2Library.getAmountOut(
+                amount1,
+                reserve1 - amount1,
+                reserve0 - amount0
+            );
+            return amount0;
         }
     }
 }
