@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "./CoinStatsBaseV1.sol";
+import "./Vault.sol";
 import "contracts/IntegrationInterface.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
@@ -32,7 +33,7 @@ interface ISavingsContractV2 {
     ) external view returns (uint256 credits);
 }
 
-contract Swap is CoinStatsBaseV1, IntegrationInterface {
+contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
     using SafeERC20 for IERC20;
 
     address private constant WETH = 0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2;
@@ -54,6 +55,8 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
     ) CoinStatsBaseV1(_goodWill, _affiliateSplit, _vaultAddress) {
         // 1inch router address
         approvedTargets[0x1111111254fb6c44bAC0beD2854e76F90643097d] = true;
+        // for testing purposes affiliate is this contract itself
+        affiliates[address(this)] = true;
     }
 
     function getBalance(
@@ -77,11 +80,20 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
         address,
         address swapTarget,
         bytes calldata swapData,
-        address
+        address affiliate
     ) external payable override {
         if (entryTokenAddress != ETH_ADDRESS) {
             _pullTokens(entryTokenAddress, entryTokenAmount);
         }
+
+        entryTokenAmount =
+            entryTokenAmount -
+            _subtractGoodwill(
+                entryTokenAddress,
+                entryTokenAmount,
+                affiliate,
+                true
+            );
 
         uint256 initialOutputTokenBalance;
         uint256 outputTokensBought;
@@ -186,7 +198,7 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
         address exitToken2Address,
         address swapTarget,
         bytes calldata swapData,
-        address
+        address affiliate
     ) external payable override {
         exitToken1Address = IUniswapV2Pair(poolAddress).token0();
         exitToken2Address = IUniswapV2Pair(poolAddress).token1();
@@ -207,11 +219,27 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
             exitToken2AmountBefore;
 
         if (exitTokenAddress == exitToken1Address) {
+            exitToken2Amount =
+                exitToken2Amount -
+                _subtractGoodwill(
+                    exitToken2Address,
+                    exitToken2Amount,
+                    affiliate,
+                    true
+                );
             IERC20(exitToken1Address).safeTransfer(
                 msg.sender,
                 exitToken2Amount
             );
         } else {
+            exitToken1Amount =
+                exitToken1Amount -
+                _subtractGoodwill(
+                    exitToken1Address,
+                    exitToken1Amount,
+                    affiliate,
+                    true
+                );
             fillQuote(
                 exitToken1Address,
                 exitToken1Amount,
