@@ -162,11 +162,181 @@ describe("Swap", () => {
     );
   });
 
+  it("Should enter with eth to weth/dai pool, and withdraw correctly.", async () => {
+    const { owner, swap, eth, usdc, usdt, dai, weth, swapTarget } =
+      await loadFixture(deploySwapFixture);
+
+    const pair = "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5";
+    const lpToken = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11";
+
+    const depositAmount = ethers.utils.parseEther("1");
+
+    const swapData1 = await getSwapData(
+      1,
+      eth,
+      depositAmount,
+      dai,
+      swap.address
+    );
+
+    await swap.deposit(
+      eth,
+      depositAmount,
+      dai,
+      weth,
+      0,
+      ethers.constants.AddressZero,
+      ethers.constants.AddressZero,
+      swapTarget,
+      swapData1.tx.data,
+      ethers.constants.AddressZero,
+      { value: depositAmount }
+    );
+
+    const lpTokenAmount = await getBalance(lpToken, owner.address);
+    await approve(owner, lpToken, swap.address, lpTokenAmount);
+
+    const amount = await swap.removeAssetReturn(lpToken, usdc, lpTokenAmount);
+
+    const swapData2 = await getSwapData(1, dai, amount, usdc, owner.address);
+
+    await approve(owner, pair, swap.address, lpTokenAmount);
+    const usdcBalanceBefore = await getBalance(usdc, owner.address);
+
+    await swap
+      .connect(owner)
+      .withdraw(
+        lpToken,
+        lpTokenAmount,
+        usdc,
+        0,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        swapTarget,
+        swapData2.tx.data,
+        ethers.constants.AddressZero
+      );
+
+    expect(await getBalance(usdc, owner.address)).to.be.greaterThan(
+      usdcBalanceBefore
+    );
+    console.log(
+      "Weth left on contract: ",
+      (await getBalance(usdt, swap.address)).toString()
+    );
+    console.log(
+      "Dai left on contract: ",
+      (await getBalance(dai, swap.address)).toString()
+    );
+    console.log(
+      "Usdt left on contract: ",
+      (await getBalance(usdt, swap.address)).toString()
+    );
+  });
+
+  it("Should enter with usdc to dai/usdt pool, and withdraw correctly.", async () => {
+    const { owner, swap, eth, usdc, usdt, dai, swapTarget } = await loadFixture(
+      deploySwapFixture
+    );
+
+    const depositAmountUsdc = ethers.utils.parseEther("1");
+
+    const ownerUsdcBalanceBefore = await getBalance(usdc, owner.address);
+
+    const swapDataEthUsdc = await getSwapData(
+      1,
+      eth,
+      depositAmountUsdc,
+      usdc,
+      owner.address
+    );
+
+    await swap.fillQuote(
+      eth,
+      depositAmountUsdc,
+      usdc,
+      swapTarget,
+      swapDataEthUsdc.tx.data,
+      { value: depositAmountUsdc }
+    );
+
+    const ownerUsdcBalanceAfter = await getBalance(usdc, owner.address);
+    const ownerUsdcAmount = ownerUsdcBalanceAfter.sub(ownerUsdcBalanceBefore);
+
+    await approve(owner, usdc, swap.address, ownerUsdcAmount);
+
+    const swapData = await getSwapData(
+      1,
+      usdc,
+      ownerUsdcAmount,
+      dai,
+      swap.address
+    );
+
+    const pair = "0xB20bd5D04BE54f870D5C0d3cA85d82b34B836405";
+    const lpToken = "0xB20bd5D04BE54f870D5C0d3cA85d82b34B836405";
+    const lpTokenBalanceBefore = await getBalance(lpToken, owner.address);
+
+    await swap
+      .connect(owner)
+      .deposit(
+        usdc,
+        ownerUsdcAmount,
+        dai,
+        usdt,
+        0,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        swapTarget,
+        swapData.tx.data,
+        ethers.constants.AddressZero
+      );
+
+    const lpTokenAmount = await getBalance(lpToken, owner.address);
+    const amount = await swap.removeAssetReturn(lpToken, usdc, lpTokenAmount);
+    console.log("AMOUUNT: ", amount.toString());
+
+    const swapData2 = await getSwapData(1, dai, amount, usdc, owner.address);
+
+    await approve(owner, pair, swap.address, lpTokenAmount);
+    const usdcBalanceBefore = await getBalance(usdc, owner.address);
+
+    await swap
+      .connect(owner)
+      .withdraw(
+        lpToken,
+        lpTokenAmount,
+        usdc,
+        0,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        swapTarget,
+        swapData2.tx.data,
+        ethers.constants.AddressZero
+      );
+
+    expect(await getBalance(usdc, owner.address)).to.be.greaterThan(
+      usdcBalanceBefore
+    );
+    console.log(
+      "Usdc left on contract: ",
+      (await getBalance(usdt, swap.address)).toString()
+    );
+    console.log(
+      "Dai left on contract: ",
+      (await getBalance(dai, swap.address)).toString()
+    );
+    console.log(
+      "Usdt left on contract: ",
+      (await getBalance(usdt, swap.address)).toString()
+    );
+  });
+
   it("Should withdraw correctly when providing usdc/dai lp tokens.", async () => {
     const { owner, swap, eth, usdc, usdt, dai, weth, swapTarget } =
       await loadFixture(deploySwapFixture);
 
-    const pair = "0xae461ca67b15dc8dc81ce7615e0320da1a9ab8d5";
+    const pair = "0xa1484C3aa22a66C62b77E0AE78E15258bd0cB711";
 
     const depositAmount = ethers.utils.parseEther("1");
 
@@ -238,7 +408,7 @@ describe("Swap", () => {
     const { owner, swap, eth, usdc, usdt, dai, weth, swapTarget } =
       await loadFixture(deploySwapFixture);
 
-    const depositAmountUsdc = ethers.utils.parseEther("10");
+    const depositAmountUsdc = ethers.utils.parseEther("1");
 
     const ownerUsdcBalanceBefore = await getBalance(usdc, owner.address);
 

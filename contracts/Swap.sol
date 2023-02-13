@@ -7,7 +7,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-import "hardhat/console.sol";
+// import "hardhat/console.sol";
 
 interface IWETH {
     function deposit() external payable;
@@ -128,8 +128,8 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
         _approveToken(depositTokenAddress2, UNISWAP_V2_ROUTER);
 
         address[] memory path = new address[](2);
-        path[0] = depositTokenAddress2; 
-        path[1] = depositTokenAddress1; 
+        path[0] = depositTokenAddress2;
+        path[1] = depositTokenAddress1;
 
         router.swapExactTokensForTokens(
             tokenToTokenAmount,
@@ -143,8 +143,8 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
             token1BalanceBefore;
 
         router.addLiquidity(
-            depositTokenAddress2, 
-            depositTokenAddress1, 
+            depositTokenAddress2,
+            depositTokenAddress1,
             _getBalance(depositTokenAddress2),
             token1BalanceAfter,
             0,
@@ -227,7 +227,7 @@ contract Swap is CoinStatsBaseV1, IntegrationInterface {
         address exitToken2Address,
         address lpTokenAddress,
         uint256 entryTokenAmount
-    ) public payable {
+    ) internal {
         uint256 exitToken1AmountBefore = _getBalance(exitToken1Address);
         uint256 exitToken2AmountBefore = _getBalance(exitToken2Address);
 
