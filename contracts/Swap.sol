@@ -8,7 +8,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-// import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 interface IWETH {
     function deposit() external payable;
@@ -232,6 +232,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
                 exitToken2Amount
             );
         } else {
+            console.log("EXIT___TOKEN___ADDRESS: ", exitToken1Address);
             exitToken1Amount =
                 exitToken1Amount -
                 _subtractGoodwill(

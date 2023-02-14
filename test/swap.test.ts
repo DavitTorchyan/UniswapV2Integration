@@ -599,5 +599,10 @@ describe("Swap", () => {
 
     const daiAmountVault = await getBalance(dai, vault.address);
     expect(daiAmountVault).to.eq(amount.div(100));
+    console.log(await vault.affiliateBalance(swap.address, dai));
+    
+    // expect(await vault.affiliateBalance(swap.address, dai)).to.eq(
+    //   daiAmountVault.div(100)
+    // );
   });
 });
