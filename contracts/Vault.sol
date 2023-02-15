@@ -3,8 +3,6 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "hardhat/console.sol";
-
 
 contract Vault is Ownable {
   using SafeERC20 for IERC20;
@@ -37,7 +35,6 @@ contract Vault is Ownable {
     address token,
     uint256 affiliatePortion
   ) external onlyIntegrationProtocols {
-    console.log("HEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE");
     affiliateBalance[affiliate][token] += affiliatePortion;
     totalAffiliateBalance[token] += affiliatePortion;
   }
