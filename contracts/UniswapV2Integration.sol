@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+
 import {CoinStatsBaseV1, SafeERC20, IERC20} from "./CoinStatsBaseV1.sol";
 import {IntegrationInterface} from "./IntegrationInterface.sol";
 
@@ -11,6 +12,7 @@ interface IWETH {
 
     function withdraw(uint256) external;
 }
+
 
 interface IUniswapV2Router {
     function swapExactTokensForTokens(
@@ -172,6 +174,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         bytes calldata swapData,
         address affiliate
     ) external payable override {
+
         if (entryTokenAddress == address(0)) {
             entryTokenAddress = ETH_ADDRESS;
         }
@@ -192,6 +195,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
             swapTarget,
             swapData
         );
+
 
         uint256 initialLiquidityBalance = _getBalance(poolAddress);
         uint256 liquidityReceived = _addUniswapV2Liquidity(
@@ -215,6 +219,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
             affiliate
         );
     }
+
 
     function _addUniswapV2Liquidity(
         address poolAddress,
@@ -329,6 +334,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         bytes calldata swapData,
         address affiliate
     ) external payable override {
+
         wihdrawLiquidityAmount = _pullTokens(
             poolAddress,
             wihdrawLiquidityAmount
@@ -399,6 +405,7 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         if (inputTokenAddress == outputTokenAddress) {
             return inputTokenAmount;
         }
+
 
         if (swapTarget == WETH) {
             if (
@@ -483,4 +490,5 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
                 ) + amount1;
         }
     }
+
 }

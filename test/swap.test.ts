@@ -292,7 +292,6 @@ describe("UniswapV2Integration", () => {
 
     const pair = "0xB20bd5D04BE54f870D5C0d3cA85d82b34B836405";
     const lpToken = "0xB20bd5D04BE54f870D5C0d3cA85d82b34B836405";
-    const lpTokenBalanceBefore = await getBalance(lpToken, owner.address);
 
     await uniswapV2Integration
       .connect(owner)
@@ -370,7 +369,7 @@ describe("UniswapV2Integration", () => {
       ONE_INCH,
     } = await loadFixture(deployUniswapV2Integration);
 
-    const pair = "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5";
+    const lpToken = "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5";
 
     const depositAmount = ethers.utils.parseEther("1");
 
@@ -395,8 +394,6 @@ describe("UniswapV2Integration", () => {
       ethers.constants.AddressZero,
       { value: depositAmount }
     );
-
-    const lpToken = "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5";
 
     const lpTokenAmount = await getBalance(lpToken, owner.address);
     await approve(owner, lpToken, uniswapV2Integration.address, lpTokenAmount);
@@ -512,12 +509,30 @@ describe("UniswapV2Integration", () => {
         { value: 0 }
       );
 
-    const daiEthLpToken = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11";
+    expect(await getBalance(usdt, owner.address)).to.be.greaterThan(
+      usdtBalanceBefore
+    );
+    console.log(
+      "Dai on contract after: ",
+      (await getBalance(dai, swap.address)).toString()
+    );
+    console.log(
+      "Weth on contract after: ",
+      (await getBalance(weth, swap.address)).toString()
+    );
+    console.log(
+      "Usdt on contract after: ",
+      (await getBalance(usdt, swap.address)).toString()
+    );
+  });
+
 
     const lpTokens = await getBalance(daiEthLpToken, owner.address);
     const wethBalanceBefore = await getBalance(WETH, owner.address);
 
-    const pair = "0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11";
+    const depositAmountUsdc = ethers.utils.parseEther("1");
+
+    const ownerUsdcBalanceBefore = await getBalance(usdc, owner.address);
 
     await approve(owner, pair, uniswapV2Integration.address, lpTokens);
 
@@ -608,7 +623,6 @@ describe("UniswapV2Integration", () => {
 
     const depositAmount = ethers.utils.parseEther("1");
     const depositAmountSwapdata = depositAmount.sub(depositAmount.div(100));
-    console.log("SwapData deposit amount: ", depositAmountSwapdata.toString());
 
     const depositSwapData = await getSwapData(
       1,
@@ -690,4 +704,67 @@ describe("UniswapV2Integration", () => {
     //   daiAmountVault.div(100)
     // );
   });
+
+  it("Should emit all events.", async () => {
+    const { owner, swap, eth, usdc, usdt, dai, weth, swapTarget } =
+      await loadFixture(deploySwapFixture);
+
+    const lpToken = "0xAE461cA67B15dc8dc81CE7615e0320dA1A9aB8D5";
+
+    const depositAmount = ethers.utils.parseEther("1");
+
+    const swapData1 = await getSwapData(
+      1,
+      eth,
+      depositAmount,
+      usdc,
+      swap.address
+    );
+
+    await expect(
+      swap.deposit(
+        eth,
+        depositAmount,
+        lpToken, //same as pool address
+        usdc,
+        0,
+        ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        swapTarget,
+        swapData1.tx.data,
+        ethers.constants.AddressZero,
+        { value: depositAmount }
+      )
+    )
+      .to.emit(swap, "Deposit")
+      .to.emit(swap, "FillQuoteSwap");
+
+    const lpTokenAmount = await getBalance(lpToken, owner.address);
+    await approve(owner, lpToken, swap.address, lpTokenAmount);
+
+    const amount = await swap.removeAssetReturn(lpToken, usdt, lpTokenAmount);
+
+    const swapData2 = await getSwapData(1, dai, amount, usdt, owner.address);
+
+    await approve(owner, lpToken, swap.address, lpTokenAmount);
+
+    await expect(
+      swap
+        .connect(owner)
+        .withdraw(
+          lpToken,
+          lpTokenAmount,
+          usdt,
+          0,
+          ethers.constants.AddressZero,
+          dai,
+          swapTarget,
+          swapData2.tx.data,
+          ethers.constants.AddressZero
+        )
+    )
+      .to.emit(swap, "FillQuoteSwap")
+      .to.emit(swap, "Withdraw");
+  });
+
 });
