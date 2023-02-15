@@ -9,7 +9,6 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "hardhat/console.sol";
 
-
 interface IWETH {
     function deposit() external payable;
 
@@ -136,14 +135,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         depositData.outputTokensBought =
             _getBalance(depositTokenAddress) -
             depositData.initialOutputTokenBalance;
-
-        emit FillQuoteSwap(
-            swapTarget,
-            entryTokenAddress,
-            entryTokenAmount,
-            depositTokenAddress,
-            depositData.outputTokensBought
-        );
 
         if (IUniswapV2Pair(poolAddress).token0() == depositTokenAddress) {
             depositData.depositTokenAddress2 = IUniswapV2Pair(poolAddress)
@@ -344,14 +335,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
 
             withdrawData.outputTokenAmount = _getBalance(exitTokenAddress);
 
-            emit FillQuoteSwap(
-                swapTarget,
-                targetWithdrawTokenAddress,
-                withdrawData.exitToken1Amount,
-                exitTokenAddress,
-                withdrawData.outputTokenAmount
-            );
-
             emit Withdraw(
                 msg.sender,
                 poolAddress,
@@ -431,6 +414,14 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         outputTokensBought =
             _getBalance(outputTokenAddress) -
             initialOutputTokenBalance;
+
+        emit FillQuoteSwap(
+            swapTarget,
+            inputTokenAddress,
+            inputTokenAmount,
+            outputTokenAddress,
+            outputTokensBought
+        );
     }
 
     function addLiquidity(
