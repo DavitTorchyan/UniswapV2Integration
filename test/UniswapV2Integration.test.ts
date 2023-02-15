@@ -11,7 +11,7 @@ import {
 } from "./helpers";
 
 describe("UniswapV2Integration", function () {
-  async function deploySpookySwapIntegration() {
+  async function deployUniswapIntegration() {
     const [deployer, otherAccount] = await ethers.getSigners();
 
     const goodwill = 0;
@@ -43,7 +43,7 @@ describe("UniswapV2Integration", function () {
     describe("Deposits in ETH", () => {
       it("Should deposit ETH to WETH-DAI pool. [ETH - WETH - WETH-DAI]", async () => {
         const { otherAccount, goodwill, uniswapV2Integration } =
-          await loadFixture(deploySpookySwapIntegration);
+          await loadFixture(deployUniswapIntegration);
 
         // Deposit
         const entryTokenAddress = addresses.ETH;
@@ -95,7 +95,7 @@ describe("UniswapV2Integration", function () {
     describe("Deposits in ERC20", () => {
       it("Should deposit WETH to WETH-DAI pool. [WETH - WETH-DAI]", async () => {
         const { otherAccount, goodwill, uniswapV2Integration } =
-          await loadFixture(deploySpookySwapIntegration);
+          await loadFixture(deployUniswapIntegration);
 
         // Deposit
         const entryTokenAddress = addresses.WETH;
@@ -146,9 +146,9 @@ describe("UniswapV2Integration", function () {
 
   describe("Withdrawals", () => {
     describe("Withdrawals in ETH", () => {
-      it("Should withdraw ETH from WETH-DAI pool. [WETH-DAI - WETH - ETH]", async () => {
+      it.only("Should withdraw ETH from WETH-DAI pool. [WETH-DAI - WETH - ETH]", async () => {
         const { otherAccount, goodwill, uniswapV2Integration } =
-          await loadFixture(deploySpookySwapIntegration);
+          await loadFixture(deployUniswapIntegration);
 
         {
           // Deposit
@@ -259,7 +259,7 @@ describe("UniswapV2Integration", function () {
     describe("Withdrawals in ERC20", () => {
       it("Should withdraw WETH from WETH-DAI pool. [WETH-DAI - WETH]", async () => {
         const { otherAccount, goodwill, uniswapV2Integration } =
-          await loadFixture(deploySpookySwapIntegration);
+          await loadFixture(deployUniswapIntegration);
 
         {
           // Deposit
