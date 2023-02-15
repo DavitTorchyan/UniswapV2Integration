@@ -146,7 +146,7 @@ describe("UniswapV2Integration", function () {
 
   describe("Withdrawals", () => {
     describe("Withdrawals in ETH", () => {
-      it.only("Should withdraw ETH from WETH-DAI pool. [WETH-DAI - WETH - ETH]", async () => {
+      it("Should withdraw ETH from WETH-DAI pool. [WETH-DAI - WETH - ETH]", async () => {
         const { otherAccount, goodwill, uniswapV2Integration } =
           await loadFixture(deployUniswapIntegration);
 
@@ -208,6 +208,247 @@ describe("UniswapV2Integration", function () {
           const minExitTokenAmount = 0;
           const underlyingTarget = addresses.ZERO_ADDRESS;
           const targetWithdrawTokenAddress = addresses.WETH;
+          const swapTarget = addresses.ONE_INCH;
+
+          const underlyingReturnAmount =
+            await uniswapV2Integration.removeAssetReturn(
+              poolAddress,
+              targetWithdrawTokenAddress,
+              liquidityAmount
+            );
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            targetWithdrawTokenAddress,
+            underlyingReturnAmount,
+            exitTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          await approve(
+            otherAccount,
+            poolAddress,
+            uniswapV2Integration.address,
+            liquidityAmount
+          );
+
+          console.log(`Withdrawing ${exitTokenAddress} from ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .withdraw(
+                poolAddress,
+                liquidityAmount,
+                exitTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetWithdrawTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+      });
+
+      it("Sould withdraw ETH from DAI-USDC pool.", async () => {
+        const { otherAccount, goodwill, uniswapV2Integration } =
+          await loadFixture(deployUniswapIntegration);
+
+        {
+          // Deposit
+          const entryTokenAddress = addresses.ETH;
+          const entryTokenAmount = ethers.utils.parseEther("10");
+          const poolAddress = uniswapV2Pools.USDC_DAI;
+          const depositTokenAddress = addresses.USDC;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetDepositTokenAddress = addresses.ZERO_ADDRESS;
+          const swapTarget = addresses.ONE_INCH;
+
+          const goodwillPortion = entryTokenAmount.mul(goodwill).div(10000);
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            entryTokenAddress,
+            entryTokenAmount.sub(goodwillPortion),
+            depositTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .deposit(
+                entryTokenAddress,
+                entryTokenAmount,
+                poolAddress,
+                depositTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetDepositTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate,
+                {
+                  value: entryTokenAmount,
+                }
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+
+        {
+          // Withdraw
+          const poolAddress = uniswapV2Pools.USDC_DAI;
+          const liquidityAmount = await uniswapV2Integration.getBalance(
+            poolAddress,
+            otherAccount.address
+          );
+
+          const exitTokenAddress = addresses.ETH;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetWithdrawTokenAddress = addresses.DAI;
+          const swapTarget = addresses.ONE_INCH;
+
+          const underlyingReturnAmount =
+            await uniswapV2Integration.removeAssetReturn(
+              poolAddress,
+              targetWithdrawTokenAddress,
+              liquidityAmount
+            );
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            targetWithdrawTokenAddress,
+            underlyingReturnAmount,
+            exitTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          await approve(
+            otherAccount,
+            poolAddress,
+            uniswapV2Integration.address,
+            liquidityAmount
+          );
+
+          console.log(`Withdrawing ${exitTokenAddress} from ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .withdraw(
+                poolAddress,
+                liquidityAmount,
+                exitTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetWithdrawTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+      });
+
+      it("Should deposit DAI and withdraw ETH from USDC-USDT pool.", async () => {
+        const { otherAccount, goodwill, uniswapV2Integration } =
+          await loadFixture(deployUniswapIntegration);
+
+        {
+          const swapDataX = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            addresses.ETH,
+            ethers.utils.parseEther("10"),
+            addresses.DAI,
+            otherAccount.address
+          );
+
+          const unsignedTransaction = {
+            from: otherAccount.address,
+            to: addresses.ONE_INCH,
+            data: swapDataX.tx.data,
+            value: ethers.utils.parseEther("10"),
+          };
+
+          await otherAccount.sendTransaction(unsignedTransaction);
+
+          // Deposit
+          const entryTokenAddress = addresses.DAI;
+          const entryTokenAmount = await getBalance(
+            addresses.DAI,
+            otherAccount.address
+          );
+
+          const poolAddress = uniswapV2Pools.USDC_USDT;
+          const depositTokenAddress = addresses.USDC;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetDepositTokenAddress = addresses.ZERO_ADDRESS;
+          const swapTarget = addresses.ONE_INCH;
+
+          const goodwillPortion = entryTokenAmount.mul(goodwill).div(10000);
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            entryTokenAddress,
+            entryTokenAmount.sub(goodwillPortion),
+            depositTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          await approve(
+            otherAccount,
+            addresses.DAI,
+            uniswapV2Integration.address,
+            entryTokenAmount
+          );
+
+          console.log(`Depositing ${entryTokenAddress} to ${poolAddress}.`);
+          await uniswapV2Integration
+            .connect(otherAccount)
+            .deposit(
+              entryTokenAddress,
+              entryTokenAmount,
+              poolAddress,
+              depositTokenAddress,
+              minExitTokenAmount,
+              underlyingTarget,
+              targetDepositTokenAddress,
+              swapTarget,
+              swapData,
+              affiliate
+            );
+          console.log(`...done`);
+        }
+
+        {
+          // Withdraw
+          const poolAddress = uniswapV2Pools.USDC_USDT;
+          const liquidityAmount = await uniswapV2Integration.getBalance(
+            poolAddress,
+            otherAccount.address
+          );
+
+          const exitTokenAddress = addresses.ETH;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetWithdrawTokenAddress = addresses.USDC;
           const swapTarget = addresses.ONE_INCH;
 
           const underlyingReturnAmount =
@@ -321,6 +562,224 @@ describe("UniswapV2Integration", function () {
           const targetWithdrawTokenAddress = addresses.WETH;
           const swapTarget = addresses.ZERO_ADDRESS;
           const swapData = addresses.ZERO_ADDRESS;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          await approve(
+            otherAccount,
+            poolAddress,
+            uniswapV2Integration.address,
+            liquidityAmount
+          );
+
+          console.log(`Withdrawing ${exitTokenAddress} from ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .withdraw(
+                poolAddress,
+                liquidityAmount,
+                exitTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetWithdrawTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+      });
+
+      it("Should deposit ETH and withdraw USDC from WETH-DAI pool.", async () => {
+        const { otherAccount, goodwill, uniswapV2Integration } =
+          await loadFixture(deployUniswapIntegration);
+
+        {
+          // Deposit
+          const entryTokenAddress = addresses.ETH;
+          const entryTokenAmount = ethers.utils.parseEther("10");
+          const poolAddress = uniswapV2Pools.WETH_DAI;
+          const depositTokenAddress = addresses.WETH;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetDepositTokenAddress = addresses.ZERO_ADDRESS;
+          const swapTarget = addresses.ONE_INCH;
+
+          const goodwillPortion = entryTokenAmount.mul(goodwill).div(10000);
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            entryTokenAddress,
+            entryTokenAmount.sub(goodwillPortion),
+            depositTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          console.log(`Depositing ${entryTokenAddress} to ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .deposit(
+                entryTokenAddress,
+                entryTokenAmount,
+                poolAddress,
+                depositTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetDepositTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate,
+                {
+                  value: entryTokenAmount,
+                }
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+
+        {
+          // Withdraw
+          const poolAddress = uniswapV2Pools.WETH_DAI;
+          const liquidityAmount = await uniswapV2Integration.getBalance(
+            poolAddress,
+            otherAccount.address
+          );
+          const exitTokenAddress = addresses.USDC;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetWithdrawTokenAddress = addresses.WETH;
+          const swapTarget = addresses.ONE_INCH;
+
+          const underlyingReturnAmount =
+            await uniswapV2Integration.removeAssetReturn(
+              poolAddress,
+              targetWithdrawTokenAddress,
+              liquidityAmount
+            );
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            targetWithdrawTokenAddress,
+            underlyingReturnAmount,
+            exitTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          await approve(
+            otherAccount,
+            poolAddress,
+            uniswapV2Integration.address,
+            liquidityAmount
+          );
+
+          console.log(`Withdrawing ${exitTokenAddress} from ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .withdraw(
+                poolAddress,
+                liquidityAmount,
+                exitTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetWithdrawTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+      });
+
+      it("Should deposit ETH and withdraw USDT from DAI-USDC pool.", async () => {
+        const { otherAccount, goodwill, uniswapV2Integration } =
+          await loadFixture(deployUniswapIntegration);
+
+        {
+          // Deposit
+          const entryTokenAddress = addresses.ETH;
+          const entryTokenAmount = ethers.utils.parseEther("10");
+          const poolAddress = uniswapV2Pools.USDC_DAI;
+          const depositTokenAddress = addresses.USDC;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetDepositTokenAddress = addresses.ZERO_ADDRESS;
+          const swapTarget = addresses.ONE_INCH;
+
+          const goodwillPortion = entryTokenAmount.mul(goodwill).div(10000);
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            entryTokenAddress,
+            entryTokenAmount.sub(goodwillPortion),
+            depositTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
+          const affiliate = addresses.ZERO_ADDRESS;
+
+          console.log(`Depositing ${entryTokenAddress} to ${poolAddress}.`);
+          await expect(
+            uniswapV2Integration
+              .connect(otherAccount)
+              .deposit(
+                entryTokenAddress,
+                entryTokenAmount,
+                poolAddress,
+                depositTokenAddress,
+                minExitTokenAmount,
+                underlyingTarget,
+                targetDepositTokenAddress,
+                swapTarget,
+                swapData,
+                affiliate,
+                {
+                  value: entryTokenAmount,
+                }
+              )
+          ).to.be.fulfilled;
+          console.log(`...done`);
+        }
+
+        {
+          // Withdraw
+          const poolAddress = uniswapV2Pools.USDC_DAI;
+          const liquidityAmount = await uniswapV2Integration.getBalance(
+            poolAddress,
+            otherAccount.address
+          );
+          const exitTokenAddress = addresses.USDT;
+          const minExitTokenAmount = 0;
+          const underlyingTarget = addresses.ZERO_ADDRESS;
+          const targetWithdrawTokenAddress = addresses.USDC;
+          const swapTarget = addresses.ONE_INCH;
+
+          const underlyingReturnAmount =
+            await uniswapV2Integration.removeAssetReturn(
+              poolAddress,
+              targetWithdrawTokenAddress,
+              liquidityAmount
+            );
+
+          const swapTargetApiResponse = await getOneInchApiResponse(
+            ethers.provider.network.chainId,
+            targetWithdrawTokenAddress,
+            underlyingReturnAmount,
+            exitTokenAddress,
+            uniswapV2Integration.address
+          );
+
+          const swapData = swapTargetApiResponse.tx.data;
           const affiliate = addresses.ZERO_ADDRESS;
 
           await approve(

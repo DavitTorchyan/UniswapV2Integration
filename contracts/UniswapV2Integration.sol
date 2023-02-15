@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-
 import {CoinStatsBaseV1, SafeERC20, IERC20} from "./CoinStatsBaseV1.sol";
 import {IntegrationInterface} from "./IntegrationInterface.sol";
 
@@ -173,7 +172,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         bytes calldata swapData,
         address affiliate
     ) external payable override {
-
         if (entryTokenAddress == address(0)) {
             entryTokenAddress = ETH_ADDRESS;
         }
@@ -194,7 +192,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
             swapTarget,
             swapData
         );
-
 
         uint256 initialLiquidityBalance = _getBalance(poolAddress);
         uint256 liquidityReceived = _addUniswapV2Liquidity(
@@ -218,7 +215,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
             affiliate
         );
     }
-
 
     function _addUniswapV2Liquidity(
         address poolAddress,
@@ -253,8 +249,8 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         uint256 bal0 = IERC20(token0).balanceOf(address(this));
         uint256 bal1 = IERC20(token1).balanceOf(address(this));
 
-        IERC20(token0).approve(address(uniswapV2Router), bal0);
-        IERC20(token1).approve(address(uniswapV2Router), bal1);
+        _approveToken(token0, address(uniswapV2Router), bal0);
+        _approveToken(token1, address(uniswapV2Router), bal1);
 
         uniswapV2Router.addLiquidity(
             token0,
@@ -333,7 +329,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         bytes calldata swapData,
         address affiliate
     ) external payable override {
-
         wihdrawLiquidityAmount = _pullTokens(
             poolAddress,
             wihdrawLiquidityAmount
@@ -404,7 +399,6 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
         if (inputTokenAddress == outputTokenAddress) {
             return inputTokenAmount;
         }
-
 
         if (swapTarget == WETH) {
             if (
@@ -489,5 +483,4 @@ contract UniswapV2Integration is CoinStatsBaseV1, IntegrationInterface {
                 ) + amount1;
         }
     }
-
 }
