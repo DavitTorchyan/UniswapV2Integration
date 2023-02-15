@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "./FeesV1.sol";
-import "hardhat/console.sol";
 
 interface IVault {
   function addAffiliateBalance( address affiliate, address token, uint256 affiliatePortion) external;
