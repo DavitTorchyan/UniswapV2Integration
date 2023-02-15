@@ -1,7 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
-// import "@nomiclabs/hardhat-waffle";
-import * as dotenv from 'dotenv'; 
+import * as dotenv from "dotenv";
 
 dotenv.config();
 
@@ -24,26 +23,25 @@ const config: HardhatUserConfig = {
         accountsBalance: "10000000000000000000000000",
       },
       forking: {
-        url: process.env.MAINNET_URL || '',
+        url: process.env.MAINNET_URL || "",
       },
-      loggingEnabled: true,
       chainId: 1,
     },
     goerli: {
       url: process.env.GOERLI_URL,
-      accounts: process.env.DEV_PRIVKEY ? [process.env.DEV_PRIVKEY]: [],  
+      accounts: process.env.DEV_PRIVKEY ? [process.env.DEV_PRIVKEY] : [],
     },
     mumbai: {
       url: process.env.MUMBAI_URL,
-      accounts: process.env.DEV_PRIVKEY ? [process.env.DEV_PRIVKEY]: [],
-    }
+      accounts: process.env.DEV_PRIVKEY ? [process.env.DEV_PRIVKEY] : [],
+    },
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
+    apiKey: process.env.ETHERSCAN_API_KEY,
   },
   mocha: {
-    timeout: 10000000000
-  }
+    timeout: 10000000000,
+  },
 };
 
 export default config;

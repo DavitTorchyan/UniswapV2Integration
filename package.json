@@ -1,5 +1,5 @@
 {
-  "name": "Swap",
+  "name": "uniswap",
   "version": "1.0.0",
   "main": "index.js",
   "license": "MIT",
@@ -30,7 +30,6 @@
     "@uniswap/v2-core": "uniswap/v2-core",
     "@uniswap/v2-periphery": "uniswap/v2-periphery",
     "axios": "^1.2.5",
-    "dotenv": "^16.0.3",
-    "ethereum-waffle": "^3.4.4"
+    "dotenv": "^16.0.3"
   }
 }
